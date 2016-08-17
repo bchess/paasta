@@ -123,6 +123,28 @@ def master_api():
     return execute_master_api_request
 
 
+def reserve_api():
+    """Helper function for making API requests to the /reserve API endpoints
+
+    :returns: a function that can be called to make a request to /reserve
+    """
+    def execute_reserve_api_request(method, endpoint, **kwargs):
+        master_api_client = master_api()
+        return master_api_client(method, "/reserve%s" % endpoint, **kwargs)
+    return execute_reserve_api_request
+
+
+def unreserve_api():
+    """Helper function for making API requests to the /unreserve API endpoints
+
+    :returns: a function that can be called to make a request to /unreserve
+    """
+    def execute_unreserve_api_request(method, endpoint, **kwargs):
+        master_api_client = master_api()
+        return master_api_client(method, "/unreserve%s" % endpoint, **kwargs)
+    return execute_unreserve_api_request
+
+
 def maintenance_api():
     """Helper function for making API requests to the /master/maintenance API endpoints
 
@@ -318,6 +340,31 @@ def get_machine_ids(hostnames):
     return machine_ids
 
 
+def build_reservation_payload(slave_id, resource, amount):
+    """Creates the JSON payload needed to dynamically (un)reserve resources in mesos.
+    :param slave_id: the id of the mesos slave
+    :param resource: the mesos resource type we want to reserve (i.e. cpus, mem, gpus, etc)
+    :param amount: integer representing the amount of the above resource to reserve
+    :returns: a dictionary that can be sent to Mesos to (un)reserve resources
+    """
+    payload = {
+        'resources': [
+            {
+                'name': resource,
+                'type': 'SCALAR',
+                'scalar': {
+                    'value': amount,
+                },
+                'role': 'maintenance',
+                'reservation': {
+                    'principal': load_credentials()[0],
+                },
+            },
+        ],
+    }
+    return payload
+
+
 def build_maintenance_schedule_payload(hostnames, start=None, duration=None, drain=True):
     """Creates the JSON payload needed to (un)schedule maintenance on the specified hostnames.
     :param hostnames: a list of hostnames
@@ -386,6 +433,44 @@ def load_credentials(mesos_secrets='/nail/etc/mesos-slave-secret'):
     return username, password
 
 
+def reserve(slave_id, resource, amount):
+    """Dynamically reserve resources in marathon to prevent tasks from using them.
+    :param slave_id: the id of the mesos slave
+    :param resource: the mesos resource type we want to reserve (i.e. cpus, mem, gpus, etc)
+    :param amount: integer representing the amount of the above resource to reserve
+    :returns: boolean where 0 represents success and 1 is a failure
+    """
+    log.info("Dynamically reserving %d %s on %s" % (amount, resource, slave_id))
+    payload = build_reservation_payload(slave_id, resource, amount)
+    client_fn = reserve_api()
+    try:
+        reserve_output = client_fn(method="POST", endpoint="", data=json.dumps(payload)).text
+    except HTTPError as e:
+        e.msg = "Error adding dynamic reservation. Got error: %s" % e.msg
+        raise
+    print reserve_output
+    return 0
+
+
+def unreserve(slave_id, resource, amount):
+    """Dynamically unreserve resources in marathon to allow tasks to using them.
+    :param slave_id: the id of the mesos slave
+    :param resource: the mesos resource type we want to unreserve (i.e. cpus, mem, gpus, etc)
+    :param amount: integer representing the amount of the above resource to unreserve
+    :returns: boolean where 0 represents success and 1 is a failure
+    """
+    log.info("Dynamically unreserving %d %s on %s" % (amount, resource, slave_id))
+    payload = build_reservation_payload(slave_id, resource, amount)
+    client_fn = unreserve_api()
+    try:
+        unreserve_output = client_fn(method="POST", endpoint="", data=json.dumps(payload)).text
+    except HTTPError as e:
+        e.msg = "Error adding dynamic unreservation. Got error: %s" % e.msg
+        raise
+    print unreserve_output
+    return 0
+
+
 def drain(hostnames, start, duration):
     """Schedules a maintenance window for the specified hosts and marks them as draining.
     :param hostnames: a list of hostnames
@@ -416,7 +501,7 @@ def undrain(hostnames):
     try:
         undrain_output = client_fn(method="POST", endpoint="", data=json.dumps(payload)).text
     except HTTPError as e:
-        e.msg = "Error performing maintenance drain. Got error: %s" % e.msg
+        e.msg = "Error performing maintenance undrain. Got error: %s" % e.msg
         raise
     return undrain_output
 
