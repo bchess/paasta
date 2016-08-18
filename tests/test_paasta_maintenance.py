@@ -20,6 +20,7 @@ import pytest
 from dateutil import tz
 
 from paasta_tools.paasta_maintenance import build_maintenance_schedule_payload
+from paasta_tools.paasta_maintenance import build_reservation_payload
 from paasta_tools.paasta_maintenance import build_start_maintenance_payload
 from paasta_tools.paasta_maintenance import datetime_seconds_from_now
 from paasta_tools.paasta_maintenance import datetime_to_nanoseconds
@@ -366,6 +367,34 @@ def test_build_maintenance_schedule_payload_schedule_undrain(
                 }
             },
         ]
+    }
+    assert actual == expected
+
+
+@mock.patch('paasta_tools.paasta_maintenance.load_credentials')
+def test_build_reservation_payload(
+    mock_load_credentials,
+):
+    fake_username = 'username'
+    mock_load_credentials.return_value = fake_username, 'password'
+    slave_id = 'fake_salve_id'
+    resource = 'cpus'
+    amount = 42
+    actual = build_reservation_payload(slave_id, resource, amount)
+    expected = {
+        'resources': [
+            {
+                'name': resource,
+                'type': 'SCALAR',
+                'scalar': {
+                    'value': amount,
+                },
+                'role': 'maintenance',
+                'reservation': {
+                    'principal': fake_username,
+                },
+            },
+        ],
     }
     assert actual == expected
 
