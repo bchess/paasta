@@ -45,10 +45,12 @@ from paasta_tools.paasta_maintenance import is_safe_to_kill
 from paasta_tools.paasta_maintenance import load_credentials
 from paasta_tools.paasta_maintenance import parse_datetime
 from paasta_tools.paasta_maintenance import parse_timedelta
+from paasta_tools.paasta_maintenance import reserve
 from paasta_tools.paasta_maintenance import schedule
 from paasta_tools.paasta_maintenance import seconds_to_nanoseconds
 from paasta_tools.paasta_maintenance import status
 from paasta_tools.paasta_maintenance import undrain
+from paasta_tools.paasta_maintenance import unreserve
 from paasta_tools.paasta_maintenance import up
 
 
@@ -381,21 +383,19 @@ def test_build_reservation_payload(
     resource = 'cpus'
     amount = 42
     actual = build_reservation_payload(slave_id, resource, amount)
-    expected = {
-        'resources': [
-            {
-                'name': resource,
-                'type': 'SCALAR',
-                'scalar': {
-                    'value': amount,
-                },
-                'role': 'maintenance',
-                'reservation': {
-                    'principal': fake_username,
-                },
+    expected = [
+        {
+            'name': resource,
+            'type': 'SCALAR',
+            'scalar': {
+                'value': amount,
             },
-        ],
-    }
+            'role': 'maintenance',
+            'reservation': {
+                'principal': fake_username,
+            },
+        },
+    ]
     assert actual == expected
 
 
@@ -455,16 +455,24 @@ def test_get_maintenance_schedule(
 
 @mock.patch('paasta_tools.paasta_maintenance.get_schedule_client')
 @mock.patch('paasta_tools.paasta_maintenance.build_maintenance_schedule_payload')
+@mock.patch('paasta_tools.paasta_maintenance.reserve_all_resources')
 def test_drain(
+    mock_reserve_all_resources,
     mock_build_maintenance_schedule_payload,
     mock_get_schedule_client,
 ):
     fake_schedule = {'fake_schedule': 'fake_value'}
     mock_build_maintenance_schedule_payload.return_value = fake_schedule
     drain(hostnames=['some-host'], start='some-start', duration='some-duration')
+
     assert mock_build_maintenance_schedule_payload.call_count == 1
     expected_args = mock.call(['some-host'], 'some-start', 'some-duration', drain=True)
     assert mock_build_maintenance_schedule_payload.call_args == expected_args
+
+    assert mock_reserve_all_resources.call_count == 1
+    expected_args = mock.call(['some-host'])
+    assert mock_reserve_all_resources.call_args == expected_args
+
     assert mock_get_schedule_client.call_count == 1
     assert mock_get_schedule_client.return_value.call_count == 1
     expected_args = mock.call(method="POST", endpoint="", data=json.dumps(fake_schedule))
@@ -473,20 +481,64 @@ def test_drain(
 
 @mock.patch('paasta_tools.paasta_maintenance.get_schedule_client')
 @mock.patch('paasta_tools.paasta_maintenance.build_maintenance_schedule_payload')
+@mock.patch('paasta_tools.paasta_maintenance.unreserve_all_resources')
 def test_undrain(
+    mock_unreserve_all_resources,
     mock_build_maintenance_schedule_payload,
     mock_get_schedule_client,
 ):
     fake_schedule = {'fake_schedule': 'fake_value'}
     mock_build_maintenance_schedule_payload.return_value = fake_schedule
     undrain(hostnames=['some-host'])
+
     assert mock_build_maintenance_schedule_payload.call_count == 1
     expected_args = mock.call(['some-host'], drain=False)
     assert mock_build_maintenance_schedule_payload.call_args == expected_args
+
+    assert mock_unreserve_all_resources.call_count == 1
+    expected_args = mock.call(['some-host'])
+    assert mock_unreserve_all_resources.call_args == expected_args
+
     assert mock_get_schedule_client.call_count == 1
     assert mock_get_schedule_client.return_value.call_count == 1
     expected_args = mock.call(method="POST", endpoint="", data=json.dumps(fake_schedule))
     assert mock_get_schedule_client.return_value.call_args == expected_args
+
+
+@mock.patch('paasta_tools.paasta_maintenance.build_reservation_payload')
+@mock.patch('paasta_tools.paasta_maintenance.reserve_api')
+def test_reserve(
+    mock_reserve_api,
+    mock_build_reservation_payload,
+):
+    fake_slave_id = 'fake-id'
+    fake_resource = 'cpus'
+    fake_amount = 42
+    reserve(fake_slave_id, fake_resource, fake_amount)
+    assert mock_build_reservation_payload.call_count == 1
+    expected_args = mock.call(fake_slave_id, fake_resource, fake_amount)
+    assert mock_build_reservation_payload.call_args == expected_args
+
+    assert mock_reserve_api.call_count == 1
+    assert mock_reserve_api.return_value.call_count == 1
+
+
+@mock.patch('paasta_tools.paasta_maintenance.build_reservation_payload')
+@mock.patch('paasta_tools.paasta_maintenance.unreserve_api')
+def test_unreserve(
+    mock_unreserve_api,
+    mock_build_reservation_payload,
+):
+    fake_slave_id = 'fake-id'
+    fake_resource = 'cpus'
+    fake_amount = 42
+    unreserve(fake_slave_id, fake_resource, fake_amount)
+    assert mock_build_reservation_payload.call_count == 1
+    expected_args = mock.call(fake_slave_id, fake_resource, fake_amount)
+    assert mock_build_reservation_payload.call_args == expected_args
+
+    assert mock_unreserve_api.call_count == 1
+    assert mock_unreserve_api.return_value.call_count == 1
 
 
 @mock.patch('paasta_tools.paasta_maintenance.master_api')

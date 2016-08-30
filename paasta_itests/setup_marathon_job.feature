@@ -18,7 +18,6 @@ Feature: setup_marathon_job can create a "complete" app
       And we run setup_marathon_job until it has 5 task(s)
      Then we should see the number of instances become 5
 
-  @wip
   Scenario: marathon apps can be scaled up with at-risk hosts
     Given a working paasta cluster
       And a new healthy app to be deployed, with bounce strategy "crossover" and drain method "noop" and constraints [["hostname", "UNIQUE"]]
@@ -35,7 +34,6 @@ Feature: setup_marathon_job can create a "complete" app
      Then the old app should be gone
       And there should be 0 tasks on that at-risk host
 
-  @wip
   Scenario: marathon apps can be deployed with at-risk hosts
     Given a working paasta cluster
       And a new healthy app to be deployed, with bounce strategy "crossover" and drain method "noop" and constraints [["hostname", "UNIQUE"]]

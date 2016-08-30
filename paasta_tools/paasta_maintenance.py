@@ -29,6 +29,7 @@ from requests.exceptions import HTTPError
 
 from paasta_tools.mesos_tools import get_count_running_tasks_on_slave
 from paasta_tools.mesos_tools import get_mesos_leader
+from paasta_tools.mesos_tools import get_mesos_state_summary_from_leader
 from paasta_tools.mesos_tools import MESOS_MASTER_PORT
 
 log = logging.getLogger(__name__)
@@ -96,7 +97,7 @@ def base_api():
         url = "http://%s:%d%s" % (leader, MESOS_MASTER_PORT, endpoint)
         timeout = 15
         s = Session()
-        s.auth = load_credentials()
+        s.auth = get_principal(), get_secret()
         req = Request(method, url, **kwargs)
         prepared = s.prepare_request(req)
         try:
@@ -347,21 +348,19 @@ def build_reservation_payload(slave_id, resource, amount):
     :param amount: integer representing the amount of the above resource to reserve
     :returns: a dictionary that can be sent to Mesos to (un)reserve resources
     """
-    payload = {
-        'resources': [
-            {
-                'name': resource,
-                'type': 'SCALAR',
-                'scalar': {
-                    'value': amount,
-                },
-                'role': 'maintenance',
-                'reservation': {
-                    'principal': load_credentials()[0],
-                },
+    payload = [
+        {
+            "name": resource,
+            "type": "SCALAR",
+            "scalar": {
+                "value": amount,
             },
-        ],
-    }
+            "role": "maintenance",
+            "reservation": {
+                "principal": str(get_principal()),
+            },
+        },
+    ]
     return payload
 
 
@@ -433,6 +432,22 @@ def load_credentials(mesos_secrets='/nail/etc/mesos-slave-secret'):
     return username, password
 
 
+def get_principal(mesos_secrets='/nail/etc/mesos-slave-secret'):
+    """Helper function to get the principal from the mesos-slave credentials
+    :param mesos_secrets: optional argument specifying the path to the file containing the mesos-slave credentials
+    :returns: a string containing the principal/username
+    """
+    return load_credentials(mesos_secrets)[0]
+
+
+def get_secret(mesos_secrets='/nail/etc/mesos-slave-secret'):
+    """Helper function to get the secret from the mesos-slave credentials
+    :param mesos_secrets: optional argument specifying the path to the file containing the mesos-slave credentials
+    :returns: a string containing the secret/password
+    """
+    return load_credentials(mesos_secrets)[1]
+
+
 def reserve(slave_id, resource, amount):
     """Dynamically reserve resources in marathon to prevent tasks from using them.
     :param slave_id: the id of the mesos slave
@@ -440,16 +455,18 @@ def reserve(slave_id, resource, amount):
     :param amount: integer representing the amount of the above resource to reserve
     :returns: boolean where 0 represents success and 1 is a failure
     """
-    log.info("Dynamically reserving %d %s on %s" % (amount, resource, slave_id))
-    payload = build_reservation_payload(slave_id, resource, amount)
+    log.info("Dynamically reserving %f %s on %s" % (amount, resource, slave_id))
+    payload = {
+        'slaveId': slave_id,
+        'resources': str(build_reservation_payload(slave_id, resource, amount)).replace("'", '"').replace('+', '%20')
+    }
     client_fn = reserve_api()
     try:
-        reserve_output = client_fn(method="POST", endpoint="", data=json.dumps(payload)).text
+        reserve_output = client_fn(method="POST", endpoint="", data=payload).text
     except HTTPError as e:
         e.msg = "Error adding dynamic reservation. Got error: %s" % e.msg
         raise
-    print reserve_output
-    return 0
+    return reserve_output
 
 
 def unreserve(slave_id, resource, amount):
@@ -460,15 +477,71 @@ def unreserve(slave_id, resource, amount):
     :returns: boolean where 0 represents success and 1 is a failure
     """
     log.info("Dynamically unreserving %d %s on %s" % (amount, resource, slave_id))
-    payload = build_reservation_payload(slave_id, resource, amount)
+    payload = {
+        'slaveId': slave_id,
+        'resources': str(build_reservation_payload(slave_id, resource, amount)).replace("'", '"').replace('+', '%20')
+    }
     client_fn = unreserve_api()
     try:
-        unreserve_output = client_fn(method="POST", endpoint="", data=json.dumps(payload)).text
+        unreserve_output = client_fn(method="POST", endpoint="", data=payload).text
     except HTTPError as e:
         e.msg = "Error adding dynamic unreservation. Got error: %s" % e.msg
         raise
-    print unreserve_output
-    return 0
+    return unreserve_output
+
+
+def reserve_all_resources(hostnames):
+    mesos_state = get_mesos_state_summary_from_leader()
+    hosts = []
+    for hostname in hostnames:
+        if '|' in hostname:
+            (host, _) = hostname.split('|')
+            hosts.append(host)
+        else:
+            hosts.append(hostname)
+    for slave in mesos_state['slaves']:
+        if slave['hostname'] in hosts:
+            log.info("Reserving all resources on %s" % slave['hostname'])
+            slave_id = slave['id']
+
+            disk = slave['resources']['disk'] - slave['used_resources']['disk']
+            for role in slave['reserved_resources']:
+                disk -= slave['reserved_resources'][role]['disk']
+            reserve(slave_id=slave_id, resource='disk', amount=disk)
+
+            mem = slave['resources']['mem'] - slave['used_resources']['mem']
+            for role in slave['reserved_resources']:
+                mem -= slave['reserved_resources'][role]['mem']
+            reserve(slave_id=slave_id, resource='mem', amount=mem)
+
+            cpus = slave['resources']['cpus'] - slave['used_resources']['cpus']
+            for role in slave['reserved_resources']:
+                cpus -= slave['reserved_resources'][role]['cpus']
+            reserve(slave_id=slave_id, resource='cpus', amount=cpus)
+
+
+def unreserve_all_resources(hostnames):
+    mesos_state = get_mesos_state_summary_from_leader()
+    hosts = []
+    for hostname in hostnames:
+        if '|' in hostname:
+            (host, _) = hostname.split('|')
+            hosts.append(host)
+        else:
+            hosts.append(hostname)
+    for slave in mesos_state['slaves']:
+        if slave['hostname'] in hosts:
+            log.info("Unreserving all resources on %s" % slave['hostname'])
+            slave_id = slave['id']
+            for role in slave['reserved_resources']:
+                disk = slave['reserved_resources'][role]['disk']
+                unreserve(slave_id=slave_id, resource='disk', amount=disk)
+
+                mem = slave['reserved_resources'][role]['mem']
+                unreserve(slave_id=slave_id, resource='mem', amount=mem)
+
+                cpus = slave['reserved_resources'][role]['cpus']
+                unreserve(slave_id=slave_id, resource='cpus', amount=cpus)
 
 
 def drain(hostnames, start, duration):
@@ -479,6 +552,7 @@ def drain(hostnames, start, duration):
     :returns: None
     """
     log.info("Draining: %s" % hostnames)
+    reserve_all_resources(hostnames)
     payload = build_maintenance_schedule_payload(hostnames, start, duration, drain=True)
     client_fn = get_schedule_client()
     try:
@@ -496,6 +570,7 @@ def undrain(hostnames):
     :returns: None
     """
     log.info("Undraining: %s" % hostnames)
+    unreserve_all_resources(hostnames)
     payload = build_maintenance_schedule_payload(hostnames, drain=False)
     client_fn = get_schedule_client()
     try:
