@@ -36,7 +36,7 @@ setup(
         # libs and pip can't seem to override it
         'argparse == 1.2.1',
         'bravado == 8.3.0',
-        'chronos-python == 0.35.0',
+        'chronos-python == 0.36.0',
         'cookiecutter == 1.4.0',
         'cryptography == 1.4',
         # Don't update this unless you have confirmed the client works with
@@ -52,7 +52,6 @@ setup(
         'jsonschema[format]',
         'kazoo >= 2.0.0',
         'marathon >= 0.8.1',
-        'mesos.cli == 0.1.5',
         'mesos.interface == 0.28.0',
         'ordereddict >= 1.1',
         'path.py >= 8.1',

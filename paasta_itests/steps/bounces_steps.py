@@ -14,7 +14,6 @@
 import contextlib
 import time
 
-import mesos.cli.master
 import mock
 from behave import given
 from behave import then
@@ -22,10 +21,11 @@ from behave import when
 from itest_utils import get_service_connection_string
 from marathon import MarathonHttpError
 
+import paasta_tools.mesos.master
 from paasta_tools import bounce_lib
 from paasta_tools import drain_lib
 from paasta_tools import marathon_tools
-from paasta_tools import paasta_maintenance
+from paasta_tools import mesos_maintenance
 from paasta_tools import setup_marathon_job
 from paasta_tools.bounce_lib import get_happy_tasks
 
@@ -181,7 +181,7 @@ def when_setup_service_initiated(context):
         mock.patch('paasta_tools.marathon_tools.get_docker_url', autospec=True, return_value='busybox'),
         mock.patch('paasta_tools.paasta_maintenance.get_principal', autospec=True),
         mock.patch('paasta_tools.paasta_maintenance.get_secret', autospec=True),
-        mock.patch.object(mesos.cli.master, 'CFG', config),
+        mock.patch.object(paasta_tools.mesos.master, 'CFG', config),
     ) as (
         _,
         _,
@@ -196,7 +196,7 @@ def when_setup_service_initiated(context):
         mock_get_secret,
         _,
     ):
-        credentials = paasta_maintenance.load_credentials(mesos_secrets='/etc/mesos-slave-secret')
+        credentials = mesos_maintenance.load_credentials(mesos_secrets='/etc/mesos-slave-secret')
         mock_get_principal.return_value = credentials[0]
         mock_get_secret.return_value = credentials[1]
         mock_load_system_paasta_config.return_value.get_cluster = mock.Mock(return_value=context.cluster)
