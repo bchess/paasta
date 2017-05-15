@@ -384,19 +384,36 @@ class InstanceConfig(object):
                 return False, 'The specified disk value "%s" is not a valid float or int.' % disk
         return True, ''
 
+    def check_security(self):
+        security = self.config_dict.get('security')
+        if security is None:
+            return True, ''
+
+        outbound_firewall = security.get('outbound_firewall')
+        if outbound_firewall not in ('block', 'monitor'):
+            return False, 'Unrecognized outbound_firewall value "%s"' % outbound_firewall
+
+        unknown_keys = set(security.keys()) - {'outbound_firewall'}
+        if unknown_keys:
+            return False, 'Unrecognized keys in security dictionary: "%s"' % unknown_keys
+
+        return True, ''
+
     def check(self, param):
         check_methods = {
             'cpus': self.check_cpus,
             'mem': self.check_mem,
+            'security': self.check_security,
         }
-        if param in check_methods:
-            return check_methods[param]()
+        check_method = check_methods.get(param)
+        if check_method is not None:
+            return check_method()
         else:
-            return False, 'Your Chronos config specifies "%s", an unsupported parameter.' % param
+            return False, 'Your service config specifies "%s", an unsupported parameter.' % param
 
     def validate(self):
         error_msgs = []
-        for param in ['cpus', 'mem']:
+        for param in ['cpus', 'mem', 'security']:
             check_passed, check_msg = self.check(param)
             if not check_passed:
                 error_msgs.append(check_msg)
@@ -441,6 +458,22 @@ class InstanceConfig(object):
         volumes = system_volumes + self.get_extra_volumes()
         deduped = {v['containerPath'] + v['hostPath']: v for v in volumes}.values()
         return sort_dicts(deduped)
+
+    def get_dependency_reference(self):
+        """Get the reference to an entry in dependencies.yaml
+
+        Defaults to None if not specified in the config.
+
+        :returns: A string specified in the config, None if not specified"""
+        return self.config_dict.get('dependencies', None)
+
+    def get_outbound_firewall(self):
+        """Return 'block', 'monitor', or None as configured in security->outbound_firewall
+
+        Defaults to None if not specified in the config
+
+        :returns: A string specified in the config, None if not specified"""
+        return self.config_dict.get('security', {}).get('outbound_firewall', None)
 
 
 def validate_service_instance(service, instance, cluster, soa_dir):
