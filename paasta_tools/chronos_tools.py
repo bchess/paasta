@@ -448,6 +448,7 @@ class ChronosJobConfig(InstanceConfig):
             'schedule': self.check_schedule,
             'scheduleTimeZone': self.check_schedule_time_zone,
             'security': self.check_security,
+            'dependencies_reference': self.check_dependencies_reference,
             'parents': self.check_parents,
             'cmd': self.check_cmd,
         }
@@ -507,7 +508,7 @@ class ChronosJobConfig(InstanceConfig):
 
         for param in ['epsilon', 'retries', 'cpus', 'mem', 'disk',
                       'schedule', 'scheduleTimeZone', 'parents', 'cmd',
-                      'security']:
+                      'security', 'dependencies_reference']:
             check_passed, check_msg = self.check(param)
             if not check_passed:
                 error_msgs.append(check_msg)

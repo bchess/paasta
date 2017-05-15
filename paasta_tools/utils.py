@@ -399,11 +399,26 @@ class InstanceConfig(object):
 
         return True, ''
 
+    def check_dependencies_reference(self):
+        dependencies_reference = self.config_dict.get('dependencies_reference')
+        if dependencies_reference is None:
+            return True, ''
+
+        dependencies = self.config_dict.get('dependencies')
+        if dependencies is None:
+            return False, 'dependency_reference "%s" declared but no dependencies found'
+
+        if dependencies_reference not in dependencies:
+            return False, 'dependency_reference "%s" not found in dependencies dictionary'
+
+        return True, ''
+
     def check(self, param):
         check_methods = {
             'cpus': self.check_cpus,
             'mem': self.check_mem,
             'security': self.check_security,
+            'dependencies_reference': self.check_dependencies_reference,
         }
         check_method = check_methods.get(param)
         if check_method is not None:
@@ -413,7 +428,7 @@ class InstanceConfig(object):
 
     def validate(self):
         error_msgs = []
-        for param in ['cpus', 'mem', 'security']:
+        for param in ['cpus', 'mem', 'security', 'dependencies_reference']:
             check_passed, check_msg = self.check(param)
             if not check_passed:
                 error_msgs.append(check_msg)
