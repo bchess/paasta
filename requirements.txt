@@ -17,7 +17,6 @@ git+git://github.com/sensu/sensu-plugin-python@bf00ac33
 git+git://github.com/thefactory/marathon-python@e70307e
 httplib2==0.9
 humanize==0.5.1
-inotify==0.2.8
 isodate==0.5.1
 jsonschema[format]==2.5.1
 kazoo==2.2
