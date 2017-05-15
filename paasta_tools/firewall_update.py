@@ -12,7 +12,6 @@ from inotify.adapters import Inotify
 from inotify.constants import IN_MODIFY
 from inotify.constants import IN_MOVED_TO
 
-from paasta_tools.dependencies import get_dependencies_of_service
 from paasta_tools.marathon_tools import load_marathon_service_config
 from paasta_tools.marathon_tools import marathon_services_running_here
 from paasta_tools.utils import DEFAULT_SOA_DIR
@@ -34,7 +33,7 @@ def smartstack_dependencies_of_running_firewalled_services(soa_dir=DEFAULT_SOA_D
         if not outbound_firewall:
             continue
 
-        dependencies = get_dependencies_of_service(config, soa_dir=soa_dir)
+        dependencies = config.get_dependencies()
 
         smartstack_dependencies = [d['smartstack'] for d in dependencies if d.get('smartstack')]
         for smartstack_dependency in smartstack_dependencies:
@@ -69,7 +68,7 @@ def main(argv=None):
             services_by_dependencies = smartstack_dependencies_of_running_firewalled_services(soa_dir=args.soa_dir)
             services_by_dependencies_time = time.time()
             if args.verbose:
-                print(services_by_dependencies)
+                print(dict(services_by_dependencies))
 
         if event is None:
             continue

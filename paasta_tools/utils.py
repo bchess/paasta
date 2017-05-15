@@ -459,13 +459,21 @@ class InstanceConfig(object):
         deduped = {v['containerPath'] + v['hostPath']: v for v in volumes}.values()
         return sort_dicts(deduped)
 
-    def get_dependency_reference(self):
+    def get_dependencies_reference(self):
         """Get the reference to an entry in dependencies.yaml
 
         Defaults to None if not specified in the config.
 
         :returns: A string specified in the config, None if not specified"""
-        return self.config_dict.get('dependencies', None)
+        return self.config_dict.get('dependencies_reference', None)
+
+    def get_dependencies(self):
+        """Get the contents of the dependencies_dict pointed to by the dependency_reference
+
+        Defaults to None if not specified in the config.
+
+        :returns: A list of dictionaries specified in the dependencies_dict, None if not specified"""
+        return self.config_dict.get('dependencies', {}).get(self.get_dependencies_reference())
 
     def get_outbound_firewall(self):
         """Return 'block', 'monitor', or None as configured in security->outbound_firewall
