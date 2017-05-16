@@ -45,9 +45,11 @@ def test_parse_args_default():
     assert not args.verbose
 
 
-@mock.patch.object(firewall_update, 'load_system_paasta_config')
-@mock.patch.object(firewall_update, 'marathon_services_running_here')
+@mock.patch.object(firewall_update, 'load_system_paasta_config', autospec=True)
+@mock.patch.object(firewall_update, 'marathon_services_running_here', autospec=True)
+@mock.patch.object(firewall_update, 'chronos_services_running_here', autospec=True)
 def test_smartstack_dependencies_of_running_firewalled_services(
+        chronos_services_running_mock,
         marathon_services_running_mock,
         paasta_config_mock,
         tmpdir):
@@ -68,6 +70,16 @@ def test_smartstack_dependencies_of_running_firewalled_services(
     }
     myservice_dir.join('marathon-mycluster.yaml').write(yaml.safe_dump(marathon_config))
 
+    chronos_config = {
+        'chronoswithsecurity': {
+            'dependencies_reference': 'my_ref',
+            'security': {
+                'outbound_firewall': 'block'
+            }
+        },
+    }
+    myservice_dir.join('chronos-mycluster.yaml').write(yaml.safe_dump(chronos_config))
+
     dependencies_config = {
         'my_ref': [
             {'well-known': 'internet'},
@@ -83,15 +95,19 @@ def test_smartstack_dependencies_of_running_firewalled_services(
         ('myservice', 'nosecurity', 0),
     ]
 
+    chronos_services_running_mock.return_value = [
+        ('myservice', 'chronoswithsecurity', 0),
+    ]
+
     result = firewall_update.smartstack_dependencies_of_running_firewalled_services(soa_dir=str(soa_dir))
     assert dict(result) == {
-        'mydependency.depinstance': {('myservice', 'hassecurity')},
-        'another.one': {('myservice', 'hassecurity')},
+        'mydependency.depinstance': {('myservice', 'hassecurity'), ('myservice', 'chronoswithsecurity')},
+        'another.one': {('myservice', 'hassecurity'), ('myservice', 'chronoswithsecurity')},
     }
 
 
-@mock.patch.object(firewall_update, 'smartstack_dependencies_of_running_firewalled_services')
-@mock.patch.object(firewall_update, 'process_inotify_event', side_effect=StopIteration)
+@mock.patch.object(firewall_update, 'smartstack_dependencies_of_running_firewalled_services', autospec=True)
+@mock.patch.object(firewall_update, 'process_inotify_event', side_effect=StopIteration, autospec=True)
 def test_run(process_inotify_mock, smartstack_deps_mock, mock_args):
     class kill_after_too_long(object):
         def __init__(self):
@@ -107,12 +123,12 @@ def test_run(process_inotify_mock, smartstack_deps_mock, mock_args):
     subprocess.Popen(['bash', '-c', 'sleep 2; echo > %s/mydep.depinstance.json' % mock_args.synapse_service_dir])
     with pytest.raises(StopIteration):
         firewall_update.run(mock_args)
-    assert smartstack_deps_mock.num_calls > 0
+    assert smartstack_deps_mock.call_count > 0
     assert process_inotify_mock.call_args[0][0][3] == 'mydep.depinstance.json'
     assert process_inotify_mock.call_args[0][1] == {}
 
 
-@mock.patch.object(firewall_update, 'log')
+@mock.patch.object(firewall_update, 'log', autospec=True)
 def test_process_inotify_event(log_mock):
     # TODO: test something more meaningful than the log function once we have actual iptables
     services_by_dependencies = {
