@@ -483,7 +483,7 @@ class InstanceConfig(object):
         Defaults to None if not specified in the config.
 
         :returns: A string specified in the config, None if not specified"""
-        return self.config_dict.get('dependencies_reference', None)
+        return self.config_dict.get('dependencies_reference')
 
     def get_dependencies(self):
         """Get the contents of the dependencies_dict pointed to by the dependency_reference

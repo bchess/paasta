@@ -68,7 +68,7 @@ setup(
         'requests-cache >= 0.4.10,<= 0.5.0',
         # We install this from git
         # 'sensu-plugin >= 0.2.0',
-        'service-configuration-lib >= 0.10.1',
+        'service-configuration-lib >= 0.12.0',
         'ujson == 1.35',
         'yelp-clog >= 2.7.2',
     ],

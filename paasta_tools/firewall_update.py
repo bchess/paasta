@@ -20,20 +20,20 @@ from paasta_tools.utils import load_system_paasta_config
 
 log = logging.getLogger(__name__)
 
-UPDATE_SECS = 5
-SYNAPSE_SERVICE_DIR = b'/var/run/synapse/services'
+DEFAULT_UPDATE_SECS = 5
+DEFAULT_SYNAPSE_SERVICE_DIR = b'/var/run/synapse/services'
 
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description='Monitor synapse changes and update service firewall rules')
     parser.add_argument('--synapse-service-dir', dest="synapse_service_dir",
-                        default=SYNAPSE_SERVICE_DIR,
+                        default=DEFAULT_SYNAPSE_SERVICE_DIR,
                         help="Path to synapse service dir (default %(default)s)")
     parser.add_argument('-d', '--soa-dir', dest="soa_dir", metavar="soa_dir",
                         default=DEFAULT_SOA_DIR,
                         help="define a different soa config directory (default %(default)s)")
     parser.add_argument('-u', '--update-secs', dest="update_secs",
-                        default=UPDATE_SECS, type=int,
+                        default=DEFAULT_UPDATE_SECS, type=int,
                         help="Poll for new containers every N secs (default %(default)s)")
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true')
 
@@ -61,7 +61,7 @@ def run(args):
         if event is None:
             continue
 
-        process_inotify_event(event[3], services_by_dependencies)
+        process_inotify_event(event, services_by_dependencies)
 
 
 def process_inotify_event(event, services_by_dependencies):
@@ -77,7 +77,7 @@ def process_inotify_event(event, services_by_dependencies):
 
 
 def smartstack_dependencies_of_running_firewalled_services(soa_dir=DEFAULT_SOA_DIR):
-    dependencies_to_services = defaultdict(list)
+    dependencies_to_services = defaultdict(set)
 
     cluster = load_system_paasta_config().get_cluster()
     for service, instance, port in marathon_services_running_here():  # TODO: + chronos
@@ -92,7 +92,7 @@ def smartstack_dependencies_of_running_firewalled_services(soa_dir=DEFAULT_SOA_D
         smartstack_dependencies = [d['smartstack'] for d in dependencies if d.get('smartstack')]
         for smartstack_dependency in smartstack_dependencies:
             # TODO: filter down to only services that have no proxy_port
-            dependencies_to_services[smartstack_dependency].append((service, instance))
+            dependencies_to_services[smartstack_dependency].add((service, instance))
 
     return dependencies_to_services
 
