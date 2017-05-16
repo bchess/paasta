@@ -1357,7 +1357,8 @@ class TestInstanceConfig:
         ({"outbound_firewall": "monitor"}, (True, '')),
         ({"outbound_firewall": "block"}, (True, '')),
         ({"outbound_firewall": "foo"}, (False, 'Unrecognized outbound_firewall value "foo"')),
-        ({"outbound_firewall": "monitor", "foo": 1}, (False, 'Unrecognized keys in security dictionary: "foo"')),
+        ({"outbound_firewall": "monitor", "foo": 1},
+            (False, 'Unrecognized items in security dict of service config: "foo"')),
     ])
     def test_check_security(self, security, expected):
         fake_conf = utils.InstanceConfig(

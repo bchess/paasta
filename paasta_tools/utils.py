@@ -398,7 +398,7 @@ class InstanceConfig(object):
 
         unknown_keys = set(security.keys()) - {'outbound_firewall'}
         if unknown_keys:
-            return False, 'Unrecognized keys in security dictionary: "%s"' % ','.join(unknown_keys)
+            return False, 'Unrecognized items in security dict of service config: "%s"' % ','.join(unknown_keys)
 
         return True, ''
 
@@ -505,7 +505,7 @@ class InstanceConfig(object):
         security = self.config_dict.get('security')
         if not security:
             return None
-        return security.get('outbound_firewall', None)
+        return security.get('outbound_firewall')
 
 
 def validate_service_instance(service, instance, cluster, soa_dir):
