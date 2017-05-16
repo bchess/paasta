@@ -46,6 +46,13 @@ class TestChronosTools:
         'schedule': 'R/2015-03-25T19:36:35Z/PT5M',
         'schedule_time_zone': 'Zulu',
         'monitoring': fake_monitoring_info,
+        'data': {},
+        'dependencies': {},
+        'deploy': {},
+        'lb_extras': {},
+        'port': None,
+        'smartstack': {},
+        'vip': None,
     }
     fake_branch_dict = {
         'desired_state': 'start',
