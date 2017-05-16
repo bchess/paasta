@@ -390,12 +390,15 @@ class InstanceConfig(object):
             return True, ''
 
         outbound_firewall = security.get('outbound_firewall')
+        if outbound_firewall is None:
+            return True, ''
+
         if outbound_firewall not in ('block', 'monitor'):
             return False, 'Unrecognized outbound_firewall value "%s"' % outbound_firewall
 
         unknown_keys = set(security.keys()) - {'outbound_firewall'}
         if unknown_keys:
-            return False, 'Unrecognized keys in security dictionary: "%s"' % unknown_keys
+            return False, 'Unrecognized keys in security dictionary: "%s"' % ','.join(unknown_keys)
 
         return True, ''
 
@@ -406,10 +409,10 @@ class InstanceConfig(object):
 
         dependencies = self.config_dict.get('dependencies')
         if dependencies is None:
-            return False, 'dependency_reference "%s" declared but no dependencies found'
+            return False, 'dependencies_reference "%s" declared but no dependencies found' % dependencies_reference
 
         if dependencies_reference not in dependencies:
-            return False, 'dependency_reference "%s" not found in dependencies dictionary'
+            return False, 'dependencies_reference "%s" not found in dependencies dictionary' % dependencies_reference
 
         return True, ''
 
@@ -488,7 +491,10 @@ class InstanceConfig(object):
         Defaults to None if not specified in the config.
 
         :returns: A list of dictionaries specified in the dependencies_dict, None if not specified"""
-        return self.config_dict.get('dependencies', {}).get(self.get_dependencies_reference())
+        dependencies = self.config_dict.get('dependencies')
+        if not dependencies:
+            return None
+        return dependencies.get(self.get_dependencies_reference())
 
     def get_outbound_firewall(self):
         """Return 'block', 'monitor', or None as configured in security->outbound_firewall
@@ -496,7 +502,10 @@ class InstanceConfig(object):
         Defaults to None if not specified in the config
 
         :returns: A string specified in the config, None if not specified"""
-        return self.config_dict.get('security', {}).get('outbound_firewall', None)
+        security = self.config_dict.get('security')
+        if not security:
+            return None
+        return security.get('outbound_firewall', None)
 
 
 def validate_service_instance(service, instance, cluster, soa_dir):
