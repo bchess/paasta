@@ -115,8 +115,7 @@ def test_run(process_inotify_mock, smartstack_deps_mock, mock_args):
 
         def __call__(self, *args, **kwargs):
             self.count += 1
-            if self.count > 5:
-                assert False, 'Took too long to detect file change'
+            assert self.count <= 5, 'Took too long to detect file change'
             return {}
 
     smartstack_deps_mock.side_effect = kill_after_too_long()
