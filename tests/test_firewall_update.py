@@ -124,7 +124,7 @@ def test_run(process_inotify_mock, smartstack_deps_mock, mock_args):
     with pytest.raises(StopIteration):
         firewall_update.run(mock_args)
     assert smartstack_deps_mock.call_count > 0
-    assert process_inotify_mock.call_args[0][0][3] == 'mydep.depinstance.json'
+    assert process_inotify_mock.call_args[0][0][3] == b'mydep.depinstance.json'
     assert process_inotify_mock.call_args[0][1] == {}
 
 

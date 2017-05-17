@@ -51,7 +51,7 @@ def setup_logging(verbose):
 def run(args):
     # Main loop waiting on inotify file events
     inotify = Inotify(block_duration_s=1)  # event_gen blocks for 1 second
-    inotify.add_watch(args.synapse_service_dir, IN_MOVED_TO | IN_MODIFY)
+    inotify.add_watch(args.synapse_service_dir.encode(), IN_MOVED_TO | IN_MODIFY)
     services_by_dependencies_time = 0
 
     for event in inotify.event_gen():  # blocks for only up to 1 second at a time
