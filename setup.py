@@ -71,6 +71,7 @@ setup(
         # We install this from git
         # 'sensu-plugin >= 0.2.0',
         'service-configuration-lib >= 0.12.0',
+        'syslogmp',
         'ujson == 1.35',
         'yelp-clog >= 2.7.2',
     ],
