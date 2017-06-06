@@ -3,43 +3,57 @@ from __future__ import print_function
 
 import argparse
 import logging
-import sys
 
 from six.moves import socketserver
 import syslogmp
 
 from paasta_tools.firewall import services_running_here
 
+from paasta_tools.utils import configure_log
+from paasta_tools.utils import load_system_paasta_config
+from paasta_tools.utils import _log
+
 
 log = logging.getLogger(__name__)
 
 
 class SyslogUDPHandler(socketserver.BaseRequestHandler):
+    def setup(self):
+        configure_log()
+        self.cluster = load_system_paasta_config().get_cluster()
+
     def handle(self):
         data, socket = self.request
 
-        syslog_to_scribe(data)
+        syslog_to_paasta_log(data, self.cluster)
 
 
-def syslog_to_scribe(data):
+def syslog_to_paasta_log(data, cluster):
     iptables_log = parse_syslog(data)
-    service, instance = lookup_service_instance_by_ip(iptables_log['SRC'])
-    if service is None:
+    if iptables_log is None:
         return
 
-    ScribeLogWriter().log(
-        service,
-        iptables_log['message'],
-        'security',
-        'warning',
-        #cluster=TODO,
+    service, instance = lookup_service_instance_by_ip(iptables_log['SRC'])
+    if service is None or instance is None:
+        return
+
+    # prepend hostname
+    log_line = iptables_log['hostname'] + ': ' + iptables_log['message']
+
+    _log(
+        service=service,
+        component='security',
+        level='debug',
+        cluster=cluster,
         instance=instance,
+        line=log_line,
     )
 
 
 def parse_syslog(data):
     parsed_data = syslogmp.parse(data)
     full_message = parsed_data.message
+
     if not full_message.startswith('kernel: ['):
         # Not a kernel message
         return None
@@ -48,8 +62,10 @@ def parse_syslog(data):
     if close_bracket == -1:
         return None
 
-    iptables_message = full_message[close_bracket:].strip()
+    iptables_message = full_message[close_bracket+1:].strip()
     parts = iptables_message.split(' ')
+    parts.insert(0, 'foo') # === TEMP
+
     # parts[0] is the log-prefix
     # parts[1..] is either KEY=VALUE or just KEY
     if not parts[1].startswith('IN='):
@@ -57,6 +73,8 @@ def parse_syslog(data):
         return None
 
     fields = {k: v for k, _, v in (field.partition('=') for field in parts[1:])}
+
+    fields['hostname'] = parsed_data.hostname
     fields['prefix'] = parts[0]
     fields['message'] = iptables_message
     return fields
