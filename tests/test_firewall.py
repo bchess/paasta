@@ -145,8 +145,8 @@ def test_service_group_rules_monitor(mock_service_config, service_group):
             target='LOG',
             matches=(
                 ('limit', (
-                    ('limit', '1/sec'),
-                    ('limit-burst', '1'),
+                    ('limit', ('1/sec',)),
+                    ('limit-burst', ('1',)),
                 )),
             ),
             target_parameters=(
@@ -159,7 +159,7 @@ def test_service_group_rules_monitor(mock_service_config, service_group):
             target='ACCEPT',
             dst='1.2.3.4/255.255.255.255',
             matches=(
-                ('tcp', (('dport', '123'),)),
+                ('tcp', (('dport', ('123',)),)),
             ),
         ),
         EMPTY_RULE._replace(
@@ -167,7 +167,7 @@ def test_service_group_rules_monitor(mock_service_config, service_group):
             target='ACCEPT',
             dst='5.6.7.8/255.255.255.255',
             matches=(
-                ('tcp', (('dport', '567'),)),
+                ('tcp', (('dport', ('567',)),)),
             ),
         ),
         EMPTY_RULE._replace(
@@ -175,7 +175,7 @@ def test_service_group_rules_monitor(mock_service_config, service_group):
             target='ACCEPT',
             dst='169.254.255.254/255.255.255.255',
             matches=(
-                ('tcp', (('dport', '20000'),)),
+                ('tcp', (('dport', ('20000',)),)),
             ),
         ),
     )
@@ -238,8 +238,8 @@ def test_service_group_rules_synapse_backend_error(mock_service_config, service_
             target='LOG',
             matches=(
                 ('limit', (
-                    ('limit', '1/sec'),
-                    ('limit-burst', '1'),
+                    ('limit', ('1/sec',)),
+                    ('limit-burst', ('1',)),
                 )),
             ),
             target_parameters=(
@@ -252,7 +252,7 @@ def test_service_group_rules_synapse_backend_error(mock_service_config, service_
             target='ACCEPT',
             dst='169.254.255.254/255.255.255.255',
             matches=(
-                ('tcp', (('dport', '20000'),)),
+                ('tcp', (('dport', ('20000',)),)),
             ),
         ),
     )
@@ -358,13 +358,13 @@ def test_ensure_dispatch_chains():
     assert mock_ensure_chain.mock_calls == [mock.call(
         'PAASTA', {
             EMPTY_RULE._replace(
-                target='chain1', matches=(('mac', (('mac_source', 'MAC1'),)),),
+                target='chain1', matches=(('mac', (('mac-source', ('MAC1',)),)),),
             ),
             EMPTY_RULE._replace(
-                target='chain1', matches=(('mac', (('mac_source', 'MAC2'),)),),
+                target='chain1', matches=(('mac', (('mac-source', ('MAC2',)),)),),
             ),
             EMPTY_RULE._replace(
-                target='chain2', matches=(('mac', (('mac_source', 'MAC3'),)),),
+                target='chain2', matches=(('mac', (('mac-source', ('MAC3',)),)),),
             ),
         },
     )]
@@ -424,7 +424,7 @@ def test_prepare_new_container(insert_rule_mock, ensure_chain_mock, reorder_chai
             'PAASTA',
             EMPTY_RULE._replace(
                 target='PAASTA.myservice.7e8522249a',
-                matches=(('mac', (('mac_source', '00:00:00:00:00:00'),)),),
+                matches=(('mac', (('mac-source', ('00:00:00:00:00:00',)),)),),
             ),
         )
     ]
