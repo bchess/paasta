@@ -1,3 +1,11 @@
+paasta-tools (0.66.5) xenial; urgency=medium
+
+  * 0.66.5 tagged with 'make release'
+    Commit: still set iptables rules if there is a firewall policy but
+    no dependencies
+
+ -- Benjamin Chess <bchess@yelp.com>  Fri, 14 Jul 2017 13:19:23 -0700
+
 paasta-tools (0.66.4) xenial; urgency=low
 
   * 0.66.4 tagged with 'make release'
